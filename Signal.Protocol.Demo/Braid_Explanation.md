@@ -23,6 +23,8 @@ RootKey = HKDF(previous_root_key || classical_dh_secret || pq_secret)
 This preserves **hybrid security**: the session remains secure if **either**
 the classical or the post-quantum layer holds.
 
+The demo attaches the PQ ciphertext and PQ ratchet public key to the message header and includes them in associated data for encryption.
+
 ### Logging
 
 All PQ-related logs are marked with:

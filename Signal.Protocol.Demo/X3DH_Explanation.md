@@ -2,6 +2,8 @@
 
 This project demonstrates the complete **Extended Triple Diffie-Hellman (X3DH)** handshake, as used in the Signal Protocol to establish a secure shared secret. The demonstration shows the process for the pairs Alice ↔ Bob, Alice ↔ Charlie, and Bob ↔ Charlie.
 
+In the running demo, the classical X3DH handshake is combined with an ML-KEM encapsulation step (PQXDH). The result is a hybrid shared secret used to seed the hybrid Double Ratchet.
+
 Note: The demo is intended for learning. It follows the core X3DH concepts but does not aim for byte-level wire-format compatibility with Signal clients.
 
 ## Basic Principle
@@ -40,6 +42,17 @@ The process relies on four Diffie-Hellman (DH) key exchanges, whose results are 
     *   Alice concatenates the results of the four DH computations: `IKM = DH1 || DH2 || DH3 || DH4`.
     *   This `Input Keying Material` (IKM) is fed into a **Key Derivation Function** (HKDF-SHA256).
     *   The KDF produces the final, 32-byte `SharedSecret`. **Alice now knows the secret.**
+
+### PQXDH Extension (Demo Default)
+
+In the hybrid PQXDH flow, Alice additionally encapsulates to Bob's ML-KEM public key and derives a PQ shared secret. The demo then computes:
+
+```
+HybridIKM = ClassicalIKM || PqSharedSecret
+RootKey = HKDF(HybridIKM)
+```
+
+Bob decapsulates the PQ ciphertext using his ML-KEM private key, derives the same PQ shared secret, and computes the identical hybrid root key.
 
 ### Phase 3: Reception (performed by Bob when he receives Alice's first message)
 

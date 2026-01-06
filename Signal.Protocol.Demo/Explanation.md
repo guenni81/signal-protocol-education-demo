@@ -1,6 +1,6 @@
 # Signal Protocol: Message Ordering, Out-of-Order, and Replay Protection
 
-This document explains the central concepts that the Signal Protocol uses to ensure asynchronous and robust communication. The accompanying C# demo implements and visualizes these mechanisms.
+This document explains the central concepts that the Signal Protocol uses to ensure asynchronous and robust communication. The accompanying C# demo implements and visualizes these mechanisms using a hybrid Double Ratchet with a post-quantum braid step.
 
 Note: This demo is conceptually aligned with Signal but does not replicate the exact wire formats or full specification details required for interoperability with real Signal clients.
 
@@ -20,14 +20,14 @@ Each chain in the Double Ratchet (see below) and each Sender Key session in a gr
 
 The Signal Protocol was explicitly designed to handle "out-of-order" delivery. The mechanism differs slightly between 1:1 conversations and groups.
 
-### 2.1. Double Ratchet (1:1 Communication)
+### 2.1. Hybrid Double Ratchet (1:1 Communication)
 
 The Double Ratchet uses two "ratchets" (ratchet mechanisms):
 
 -   **Symmetric-key Ratchet (Chain Key):** For each message sent, a `Message Key` and the `Chain Key` for the next message are derived from a `Chain Key` (hashing). This forms a chain of keys. The counter in this chain is the **Message Number (N)**.
 -   **Diffie-Hellman Ratchet (Root Key):** When a user receives a message from a partner's new DH key pair, a new `Root Key` is calculated. From this, the first `Chain Key` for a new chain is derived.
 
-**The Out-of-Order Problem:** What happens if Alice sends messages `N` and `N+1` from Chain A, and then immediately performs a new DH ratchet and sends message `M` from Chain B? If Bob now receives `M` (Chain B) first and then `N` (Chain A), his ratchet has already advanced to Chain B. He can no longer access Chain A with the old state.
+**The Out-of-Order Problem:** What happens if Alice sends messages `N` and `N+1` from Chain A, and then immediately performs a new DH ratchet (with an accompanying PQ braid step) and sends message `M` from Chain B? If Bob now receives `M` (Chain B) first and then `N` (Chain A), his ratchet has already advanced to Chain B. He can no longer access Chain A with the old state.
 
 **The Solution: Skipped Message Keys**
 
@@ -35,9 +35,9 @@ The Double Ratchet uses two "ratchets" (ratchet mechanisms):
 -   He derives the `Message Keys` for the skipped messages (`N` to `N+k-1`) and stores them in a **`SkippedMessageKeys` list** along with their Message Number.
 -   If a delayed message (e.g., `N`) now arrives, the recipient first checks if the key exists in the `SkippedMessageKeys` list.
 -   If so, the stored key is used for decryption and then removed from the list to prevent replay attacks.
--   Additionally, for each new DH ratchet (new `Root Key`), the old `Chain Key` is retained for a limited time to allow decryption of delayed messages from old chains ("epochs").
+-   The demo keeps only the skipped message keys for delayed messages; it does not retain entire old chain keys beyond that cache.
 
-In our demo, this is simulated by Alice sending 3 messages, but Bob receiving them in the order 3, 1, 2. The implementation in `DoubleRatchet.cs` stores the keys for messages 1 and 2 when message 3 arrives, and then uses them when the delayed messages arrive.
+In our demo, this is simulated by Alice sending 3 messages, but Bob receiving them in the order 3, 1, 2. The implementation in `HybridDoubleRatchet.cs` stores the keys for messages 1 and 2 when message 3 arrives, and then uses them when the delayed messages arrive.
 
 ### 2.2. Sender Keys (Group Communication)
 

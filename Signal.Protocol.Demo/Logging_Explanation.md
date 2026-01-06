@@ -20,7 +20,7 @@ This is demonstrated in `Program.cs`: The entire simulation first runs with logg
 The logs are chronological and color-coded by category to help follow the protocol's execution.
 
 ### Log Structure:
-`[Timestamp] [CATEGORY] [!!! WARNING !!!] Message`
+`[Timestamp] [CATEGORY] [INSECURE DEMO ONLY – PRIVATE KEY OUTPUT] Message`
 
 ### Important Categories and their Meaning:
 
@@ -28,11 +28,12 @@ The logs are chronological and color-coded by category to help follow the protoc
     -   Here you can see how each device generates its identity keys (`IdentityKey`), signed pre-keys (`SignedPreKey`), and one-time pre-keys (`OneTimePreKey`).
     -   **Important:** Private and public keys are explicitly output here as Base64 strings to help trace their subsequent use.
 
-2.  **`[X3DH]` (Magenta): X3DH Handshake**
+2.  **`[X3DH]` (Magenta): X3DH/PQXDH Handshake**
     -   This section is crucial for session establishment.
     -   You will see the four Diffie-Hellman computations (`DH1` to `DH4`) from which the `IKM` (Intermediate Key Material) is composed.
     -   From the `IKM`, the final `SK` (Shared Secret) is derived using a KDF (Key Derivation Function). This `SK` becomes the first `RootKey` in the Double Ratchet.
     -   In the PQXDH demo flow, the signature verification for the PQ identity prekey is also logged here.
+    -   PQ-specific traces are additionally prefixed with `INSECURE DEMO ONLY – POST-QUANTUM TRACE`.
 
 3.  **`[RATCHET]` (Yellow): Double Ratchet (1:1 Messages)**
     -   **DH Ratchet (Asymmetric):** When a device receives a message with a new ratchet key, a DH step is performed. You will see the old `RootKey`, the DH result, and how the **new `RootKey`** and **new `ChainKey`** are derived from it.
@@ -57,4 +58,4 @@ The logs are chronological and color-coded by category to help follow the protoc
 
 In a **PRODUCTION ENVIRONMENT**, these keys **MUST NEVER** be logged, exported, or otherwise removed from the device's protected storage.
 
-However, for this **LEARNING PROJECT**, logging these values is invaluable. It makes the abstract KDF chains and ratchet steps tangible, demonstrating how a chain of secrets repeatedly generates new one-time keys for messages without revealing the root secret. Every log entry containing such sensitive material is therefore explicitly marked with `[!!! INSECURE / DEMO ONLY !!!]` in red.
+However, for this **LEARNING PROJECT**, logging these values is invaluable. It makes the abstract KDF chains and ratchet steps tangible, demonstrating how a chain of secrets repeatedly generates new one-time keys for messages without revealing the root secret. Every log entry containing such sensitive material is therefore explicitly marked with `[INSECURE DEMO ONLY – PRIVATE KEY OUTPUT]` in red, and PQ-specific traces include `INSECURE DEMO ONLY – POST-QUANTUM TRACE`.

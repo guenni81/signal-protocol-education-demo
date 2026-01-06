@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-This project is a didactic (educational) demo implementation of core components of the Signal Protocol, written in C# (.NET Core 10). Its primary purpose is to illustrate the complex cryptographic mechanisms and messaging flows that underpin modern secure communication.
+This project is a didactic (educational) demo implementation of core components of the Signal Protocol, written in C# (.NET Core 10). Its primary purpose is to illustrate the complex cryptographic mechanisms and messaging flows that underpin modern secure communication, including a hybrid post-quantum (PQXDH + ML-KEM) extension.
 
 The demo provides a step-by-step trace of key agreement, message encryption/decryption, and advanced features like out-of-order message handling and group messaging. It simulates multiple users and devices communicating entirely in-memory, without any actual network communication or persistence.
 
@@ -14,13 +14,13 @@ This demo showcases the following Signal Protocol components and concepts:
 
 *   **Identity Keys, Signed PreKeys, One-Time PreKeys**: Illustrates the generation and role of these foundational keys in establishing trust and initial key agreement.
 *   **PreKey Server (Simulated)**: A simplified in-memory simulation of a server that stores and serves public PreKey Bundles.
-*   **X3DH Key Agreement**: Demonstrates the Extended Triple Diffie-Hellman handshake for establishing a secure shared secret between two parties, even if one is offline.
-*   **Double Ratchet (1:1 Messaging)**: Implements the Double Ratchet algorithm for forward secrecy and future secrecy in one-to-one conversations. This includes both the DH ratchet and the symmetric-key ratchet.
+*   **PQXDH Key Agreement (Hybrid)**: Demonstrates a hybrid X3DH + ML-KEM handshake for establishing a secure shared secret between two parties, even if one is offline.
+*   **Hybrid Double Ratchet (1:1 Messaging)**: Extends the Double Ratchet with a PQ braid step at each DH ratchet, combining classical and PQ secrets for hybrid security.
 *   **Signal Group Messaging (Sender Keys)**: Shows how group messages are securely exchanged using Sender Keys, enabling efficient encryption for multiple recipients.
 *   **Multi-Device Support**: Users can have multiple devices (e.g., Mobile, Desktop, Tablet), and the demo illustrates how sessions and keys are managed across them.
 *   **Message Ordering & Out-of-Order Handling**: Explains and demonstrates how the protocol gracefully handles messages that arrive out of their intended sequence.
 *   **Skipped Message Keys**: Implementation of the mechanism to temporarily store message keys for out-of-order messages, allowing for their eventual decryption.
-*   **Replay Protection**: Shows how message counters and key expiration prevent replay attacks.
+*   **Replay Protection**: Shows how message counters and skipped-key caches prevent replay attacks.
 *   **Debug & Trace Logging**: A custom logging system that provides granular, step-by-step insights into cryptographic operations.
 *   **PQ PreKey Authentication (Demo)**: The public post-quantum identity prekey is signed with the classical identity signing key and verified before use.
 
@@ -51,36 +51,38 @@ The project follows a clear separation of concerns, simulating different layers 
 **Major Classes and Responsibilities:**
 
 *   **`User`**: Represents a user with a name and a collection of `Device` instances.
-*   **`Device`**: Represents a single device belonging to a user. It manages its `KeyManager` and stores `DoubleRatchet` sessions (`PairwiseSessions`) and `SenderKeyState` instances (`ReceivedSenderKeyStates`, `OwnSenderKeyStates`).
-*   **`KeyManager`**: Handles the generation and management of X3DH-related keys (Identity, Signed PreKey, One-Time PreKeys) for a single `Device`.
+*   **`Device`**: Represents a single device belonging to a user. It manages its `KeyManager` and stores `HybridDoubleRatchet` sessions (`PairwiseSessions`) and `SenderKeyState` instances (`ReceivedSenderKeyStates`, `OwnSenderKeyStates`).
+*   **`KeyManager`**: Handles the generation and management of classical X3DH-related keys (Identity, Signed PreKey, One-Time PreKeys) for a single `Device`.
+*   **`PostQuantumKeyManager`**: Manages ML-KEM identity and one-time prekeys for a single `Device`.
 *   **`PreKeyServer`**: A simulated server that stores and provides public PreKey Bundles to initiating devices.
-*   **`MessageService`**: Manages 1:1 Double Ratchet sessions, initiates X3DH handshakes, and handles the encryption/decryption of 1:1 messages. It interacts with the `TransportService`.
+*   **`MessageService`**: Manages 1:1 hybrid ratchet sessions, initiates PQXDH handshakes, and handles the encryption/decryption of 1:1 messages. It interacts with the `TransportService`.
 *   **`GroupMessageService`**: Manages group sessions, handles the distribution of Sender Keys, and encrypts/decrypts group messages using Sender Keys. It uses the `MessageService` for 1:1 key distribution.
 *   **`TransportService`**: A simulated network layer that queues messages and delivers them. Crucially, it allows for out-of-order message delivery to demonstrate the protocol's robustness.
-*   **`DoubleRatchet`**: Implements the state and logic for a single Double Ratchet session, including key derivation for message encryption and decryption, and handling of skipped message keys.
+*   **`PQXdhSession`**: Performs the hybrid PQXDH handshake (classical X3DH + ML-KEM encapsulation).
+*   **`HybridDoubleRatchet`**: Implements the hybrid ratchet state and logic (classical DH + PQ braid), including skipped message key handling.
 *   **`SenderKeyState`**: Manages the cryptographic state for a sender within a group, including its Chain Key, Message Counter, and Skipped Message Keys.
 *   **`KDFUtil`**: Utility class providing Key Derivation Functions (KDFs) and Diffie-Hellman (DH) operations.
 *   **`TraceLogger`**: A custom static logger for detailed, categorized, and color-coded trace output.
 *   **`DebugMode`**: A global static switch to enable or disable detailed trace logging at runtime.
 
 **Separation of Concerns:**
-The architecture clearly separates cryptographic logic (handled by `KeyManager`, `X3DHSession`, `DoubleRatchet`, `SenderKeyState`, `KDFUtil`) from application-level messaging (orchestrated by `MessageService`, `GroupMessageService`) and simulated transport (`TransportService`). Logging is also a distinct concern, managed by `TraceLogger` and `DebugMode`.
+The architecture clearly separates cryptographic logic (handled by `KeyManager`, `PostQuantumKeyManager`, `PQXdhSession`, `HybridDoubleRatchet`, `SenderKeyState`, `KDFUtil`) from application-level messaging (orchestrated by `MessageService`, `GroupMessageService`) and simulated transport (`TransportService`). Logging is also a distinct concern, managed by `TraceLogger` and `DebugMode`.
 
 ## Message Flow Summary
 
-### 1:1 Messaging Flow (Alice ↔ Bob)
+### 1:1 Messaging Flow (Alice ↔ Bob, Hybrid PQXDH + Hybrid Ratchet)
 
 1.  **Bob's Setup**: Bob generates his Identity Keys, Signed PreKey, and One-Time PreKeys, then uploads their public parts to the `PreKeyServer`.
 2.  **Alice Initiates**: Alice wants to send a message to Bob.
     *   She fetches Bob's public PreKey Bundle from the `PreKeyServer`.
-    *   She performs the **X3DH handshake** with Bob's public keys and her own private keys to derive a shared secret.
-    *   A `DoubleRatchet` session is initialized for Alice using this shared secret.
-    *   Alice encrypts her first message using her `DoubleRatchet` session.
+    *   She performs the **PQXDH handshake** (X3DH + ML-KEM) with Bob's public keys to derive a hybrid shared secret.
+    *   A `HybridDoubleRatchet` session is initialized for Alice using this shared secret.
+    *   Alice encrypts her first message using her `HybridDoubleRatchet` session.
 3.  **Bob Receives**: Bob receives Alice's first message (which contains Alice's public keys).
-    *   He performs the **X3DH handshake** symmetrically with Alice's public keys and his own private keys to derive the *same* shared secret.
-    *   A `DoubleRatchet` session is initialized for Bob using this shared secret.
-    *   Bob decrypts Alice's message using his `DoubleRatchet` session.
-4.  **Ongoing Communication**: Subsequent messages between Alice and Bob use their established `DoubleRatchet` sessions, advancing the symmetric and DH ratchets for forward and future secrecy.
+    *   He performs the **PQXDH handshake** symmetrically with Alice's public keys and his own private keys to derive the *same* hybrid shared secret.
+    *   A `HybridDoubleRatchet` session is initialized for Bob using this shared secret.
+    *   Bob decrypts Alice's message using his `HybridDoubleRatchet` session.
+4.  **Ongoing Communication**: Subsequent messages between Alice and Bob use their established `HybridDoubleRatchet` sessions, advancing the symmetric and DH ratchets plus a PQ braid step for hybrid security.
 
 ### Group Messaging Flow Using Sender Keys
 
@@ -88,7 +90,7 @@ The architecture clearly separates cryptographic logic (handled by `KeyManager`,
 2.  **Sender Key Distribution**:
     *   Alice's Mobile generates a `SenderKeyState` (containing a signing key and a chain key) for the group.
     *   She then creates a `SenderKeyDistributionMessage` (containing the public signing key and initial chain key).
-    *   This distribution message is sent, encrypted via the established 1:1 `DoubleRatchet` sessions, to all other devices in the group.
+    *   This distribution message is sent, encrypted via the established 1:1 `HybridDoubleRatchet` sessions, to all other devices in the group.
 3.  **Recipient Processing**: Each recipient device (e.g., Bob's Mobile, Charlie's Tablet) receives the `SenderKeyDistributionMessage` via their 1:1 session. They store the public signing key and initial chain key as a `ReceivedSenderKeyState` for that sender within the group.
 4.  **Group Message Sending**:
     *   When Alice's Mobile sends a group message, her `SenderKeyState` advances its symmetric ratchet, deriving a `MessageKey` for encryption and a new `ChainKey`.
@@ -122,8 +124,8 @@ In `Program.cs`, the demo runs in two phases: first with debug logging **enabled
 The `TraceLogger` categorizes logs for clarity:
 
 *   `[KEYGEN]`: Key generation (Identity, PreKeys, One-Time PreKeys).
-*   `[X3DH]`: X3DH handshake steps, DH computations, IKM derivation, Shared Secret.
-*   `[RATCHET]`: Double Ratchet advancements (DH ratchet, symmetric ratchet), Root Key, Chain Key, Message Key derivation.
+*   `[X3DH]`: X3DH/PQXDH handshake steps, DH computations, IKM derivation, Shared Secret.
+*   `[RATCHET]`: Hybrid ratchet advancements (DH ratchet, symmetric ratchet, PQ braid), Root Key, Chain Key, Message Key derivation.
 *   `[GROUP]`: Sender Key distribution, group message sending/receiving, signature verification.
 *   `[ORDERING]`: Handling of out-of-order messages, skipped message keys, chain fast-forwarding.
 *   `[INFO]`: General flow and high-level events.
@@ -138,7 +140,7 @@ For didactic purposes, this demo **intentionally logs sensitive cryptographic ma
 *   Understand how keys are transformed and derived from one step to the next.
 *   Verify the mathematical operations (e.g., DH computations, HKDF outputs) being performed.
 
-Each log entry containing such sensitive data is explicitly prefixed with: `[INSECURE DEMO ONLY – PRIVATE KEY OUTPUT]` to underscore its highly insecure nature in any context outside of this specific learning environment.
+Each log entry containing such sensitive data is explicitly prefixed with: `[INSECURE DEMO ONLY – PRIVATE KEY OUTPUT]` to underscore its highly insecure nature in any context outside of this specific learning environment. PQ-specific traces additionally include the prefix `INSECURE DEMO ONLY – POST-QUANTUM TRACE`.
 
 ## Out-of-Order & Message Ordering
 
@@ -164,7 +166,7 @@ This demo project has several intentional limitations and should **NEVER** be us
 
 ## Demo Scope (Spec Alignment)
 
-This project is intended for didactic use, not strict interoperability with real Signal clients. It aims to illustrate the core ideas (X3DH-style handshake, Double Ratchet, Sender Keys, out-of-order handling), but it does **not** replicate Signal's exact wire formats, KDF inputs/outputs, identity model, or session metadata. As a result, the implementation should be treated as conceptually aligned rather than spec-accurate.
+This project is intended for didactic use, not strict interoperability with real Signal clients. It aims to illustrate the core ideas (PQXDH-style handshake, hybrid Double Ratchet, Sender Keys, out-of-order handling), but it does **not** replicate Signal's exact wire formats, KDF inputs/outputs, identity model, or session metadata. As a result, the implementation should be treated as conceptually aligned rather than spec-accurate.
 
 ## How to Run the Demo
 
@@ -196,7 +198,7 @@ dotnet run --project Signal.Protocol.Demo/Signal.Protocol.Demo.csproj
 
 ### What Output to Expect
 
-The console output will be entirely in English. You will first see a detailed trace of all cryptographic operations with debug logging **enabled**. This includes key generation, X3DH handshakes, Double Ratchet advancements, and group messaging flows, with sensitive key material explicitly marked.
+The console output will be entirely in English. You will first see a detailed trace of all cryptographic operations with debug logging **enabled**. This includes key generation, PQXDH handshakes, hybrid ratchet advancements, and group messaging flows, with sensitive key material explicitly marked.
 
 Following the detailed phase, debug logging will be **disabled**, and a final set of messages will be sent. During this phase, you should observe significantly reduced output, demonstrating that the `TraceLogger` effectively becomes silent when `DebugMode.Enabled` is `false`.
 
@@ -210,8 +212,9 @@ A short glossary of Signal-specific terms used in this project:
 *   **PreKey Bundle**: A collection of public keys (IK, SPK, OPK) uploaded to a server by a recipient.
 *   **X3DH (Extended Triple Diffie-Hellman)**: A key agreement protocol used to establish a shared secret between two parties.
 *   **Ephemeral Key (EK)**: A short-lived, session-specific key pair generated by the initiator in X3DH.
-*   **Shared Secret (SK)**: The symmetric key derived from the X3DH handshake, used to seed the Double Ratchet.
-*   **Double Ratchet**: An algorithm that continuously updates session keys after every message, providing forward and future secrecy.
+*   **Shared Secret (SK)**: The symmetric key derived from the X3DH/PQXDH handshake, used to seed the ratchet.
+*   **PQXDH**: A demo hybrid handshake that combines X3DH with an ML-KEM encapsulation step.
+*   **Hybrid Double Ratchet**: A Double Ratchet variant that mixes classical DH secrets with PQ braid secrets at each DH step.
 *   **Root Key (RK)**: A key in the Double Ratchet used to derive Chain Keys and subsequent Root Keys.
 *   **Chain Key (CK)**: A key in the Double Ratchet used to derive Message Keys and the next Chain Key.
 *   **Message Key (MK)**: A symmetric key derived from the Chain Key, used for encrypting and decrypting a single message.

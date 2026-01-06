@@ -4,7 +4,7 @@ This document outlines the security posture, limitations, and recommendations fo
 
 ## 1. Project Security Overview
 
-This project (`Signal.Protocol.Demo`) is a **didactic and educational demonstration** of the core concepts behind the Signal Protocol. Its primary purpose is to help developers, security researchers, and students understand the mechanics of end-to-end encrypted messaging, including key exchange (X3DH), session management (Double Ratchet), and group messaging (Sender Keys).
+This project (`Signal.Protocol.Demo`) is a **didactic and educational demonstration** of the core concepts behind the Signal Protocol. Its primary purpose is to help developers, security researchers, and students understand the mechanics of end-to-end encrypted messaging, including key exchange (X3DH + PQXDH hybrid), session management (Hybrid Double Ratchet), and group messaging (Sender Keys).
 
 This repository is designed for educational purposes only. It illustrates key ideas of the Signal Protocol but does not aim for full specification compliance or interoperability with production Signal clients.
 
@@ -18,6 +18,7 @@ The following limitations are inherent to this demo project and highlight why it
 *   **Debug Mode Logging:** In certain configurations (e.g., Debug Mode), private keys, intermediate cryptographic material, and sensitive state information may be logged to the console or other output streams. This is solely for educational tracing and debugging.
 *   **No Persistent Storage:** Keys, session states, and message histories are not persistently stored. All cryptographic material and communication state are lost upon program exit.
 *   **Simplified Protocol Implementation:** The implementation simplifies certain aspects of the Signal Protocol for clarity and educational focus. Some features, edge cases, or hardening mechanisms present in a full production-grade Signal implementation may be missing or simplified.
+*   **Hybrid PQ Demo Only:** The PQXDH + hybrid ratchet braid is a demo-only extension meant for learning and is not a vetted post-quantum security design.
 *   **Replay Protection and Forward Secrecy:** While concepts like replay protection and forward secrecy are demonstrated, their implementation is simplified and not hardened against sophisticated attacks.
 *   **Multi-Device and Group Messaging Simplifications:** Multi-device synchronization and group messaging mechanisms are implemented in a basic form, primarily to illustrate the underlying principles rather than providing a robust, fault-tolerant solution.
 
