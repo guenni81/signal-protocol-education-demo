@@ -32,6 +32,7 @@ The logs are chronological and color-coded by category to help follow the protoc
     -   This section is crucial for session establishment.
     -   You will see the four Diffie-Hellman computations (`DH1` to `DH4`) from which the `IKM` (Intermediate Key Material) is composed.
     -   From the `IKM`, the final `SK` (Shared Secret) is derived using a KDF (Key Derivation Function). This `SK` becomes the first `RootKey` in the Double Ratchet.
+    -   In the PQXDH demo flow, the signature verification for the PQ identity prekey is also logged here.
 
 3.  **`[RATCHET]` (Yellow): Double Ratchet (1:1 Messages)**
     -   **DH Ratchet (Asymmetric):** When a device receives a message with a new ratchet key, a DH step is performed. You will see the old `RootKey`, the DH result, and how the **new `RootKey`** and **new `ChainKey`** are derived from it.

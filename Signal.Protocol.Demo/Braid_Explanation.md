@@ -10,6 +10,7 @@ It is **not production-ready** and is intentionally simplified for learning.
   - The ML-KEM ciphertext
   - A fresh PQ ratchet public key
 - The receiver decapsulates the PQ secret and updates its PQ ratchet state.
+- The public PQ identity prekey is authenticated by a signature from the classical identity signing key (one-time PQ prekeys remain unsigned), preventing key substitution.
 
 ### Root Key Update (Hybrid)
 

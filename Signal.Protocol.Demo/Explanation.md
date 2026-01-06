@@ -2,6 +2,8 @@
 
 This document explains the central concepts that the Signal Protocol uses to ensure asynchronous and robust communication. The accompanying C# demo implements and visualizes these mechanisms.
 
+Note: This demo is conceptually aligned with Signal but does not replicate the exact wire formats or full specification details required for interoperability with real Signal clients.
+
 ## 1. Why are Message Counters Necessary?
 
 In an asynchronous system like the internet, there's no guarantee that messages will arrive in the order they were sent. While a TCP socket ensures this, mobile clients are often not permanently online and constantly switch networks. Signal is therefore built on stateless servers that merely receive and forward messages ("Store and Forward").

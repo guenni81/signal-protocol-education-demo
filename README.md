@@ -22,6 +22,7 @@ This demo showcases the following Signal Protocol components and concepts:
 *   **Skipped Message Keys**: Implementation of the mechanism to temporarily store message keys for out-of-order messages, allowing for their eventual decryption.
 *   **Replay Protection**: Shows how message counters and key expiration prevent replay attacks.
 *   **Debug & Trace Logging**: A custom logging system that provides granular, step-by-step insights into cryptographic operations.
+*   **PQ PreKey Authentication (Demo)**: The public post-quantum identity prekey is signed with the classical identity signing key and verified before use.
 
 ## Architecture Overview
 
@@ -160,6 +161,10 @@ This demo project has several intentional limitations and should **NEVER** be us
 *   **Insecure Demo Logging**: As described above, sensitive cryptographic material is logged in plaintext for educational purposes. This is a critical security vulnerability in any real application.
 *   **Simplified Cryptography**: While using the `NSec.Cryptography` library for robust primitives, the overall implementation simplifies certain aspects of the Signal Protocol for clarity (e.g., no session expiration, no session trimming, basic key management for one-time prekeys).
 *   **Not Suitable for Production**: Due to the above, this code is not engineered for security, reliability, or performance required in a production system.
+
+## Demo Scope (Spec Alignment)
+
+This project is intended for didactic use, not strict interoperability with real Signal clients. It aims to illustrate the core ideas (X3DH-style handshake, Double Ratchet, Sender Keys, out-of-order handling), but it does **not** replicate Signal's exact wire formats, KDF inputs/outputs, identity model, or session metadata. As a result, the implementation should be treated as conceptually aligned rather than spec-accurate.
 
 ## How to Run the Demo
 

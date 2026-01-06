@@ -2,6 +2,8 @@
 
 This project demonstrates the complete **Extended Triple Diffie-Hellman (X3DH)** handshake, as used in the Signal Protocol to establish a secure shared secret. The demonstration shows the process for the pairs Alice ↔ Bob, Alice ↔ Charlie, and Bob ↔ Charlie.
 
+Note: The demo is intended for learning. It follows the core X3DH concepts but does not aim for byte-level wire-format compatibility with Signal clients.
+
 ## Basic Principle
 
 X3DH enables a user (the **Initiator**, e.g., Alice) to asynchronously establish a shared secret with another user (the **Recipient**, e.g., Bob). This works even if the recipient is offline, as the initiator obtains all necessary information from a "PreKey Bundle" previously uploaded by the recipient.
@@ -24,6 +26,7 @@ The process relies on four Diffie-Hellman (DH) key exchanges, whose results are 
 1.  **Bundle Retrieval**: Alice wants to communicate with Bob. She requests Bob's PreKey Bundle from the `PreKeyServer`. The server provides her with Bob's public keys, including a `OneTimePreKey` (if available).
 
 2.  **Signature Verification**: Alice verifies the signature of Bob's `SignedPreKey`. She uses Bob's `PublicIdentitySigningKey` (which she received from the bundle) for this. This ensures that the `SignedPreKey` is authentically from Bob and has not been tampered with.
+    *   **PQ Demo Extension:** In the PQXDH variant used by this demo, the public post-quantum identity prekey is also signed by the classical `IdentitySigningKey` and verified before use.
 
 3.  **Ephemeral Key Generation**: Alice generates her own DH key pair, valid only for this session: the `EphemeralKey` (EK_A).
 

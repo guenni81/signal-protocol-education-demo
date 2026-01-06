@@ -6,6 +6,8 @@ This document outlines the security posture, limitations, and recommendations fo
 
 This project (`Signal.Protocol.Demo`) is a **didactic and educational demonstration** of the core concepts behind the Signal Protocol. Its primary purpose is to help developers, security researchers, and students understand the mechanics of end-to-end encrypted messaging, including key exchange (X3DH), session management (Double Ratchet), and group messaging (Sender Keys).
 
+This repository is designed for educational purposes only. It illustrates key ideas of the Signal Protocol but does not aim for full specification compliance or interoperability with production Signal clients.
+
 **Crucially, this project is NOT production-ready and should NEVER be used for real-world secure communication.** The cryptographic operations are implemented for learning and illustrative purposes only and lack the rigorous security engineering and auditing required for real-world applications.
 
 ## 2. Known Security Limitations
