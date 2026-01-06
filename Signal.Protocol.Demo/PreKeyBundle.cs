@@ -49,6 +49,11 @@ public class PreKeyBundle
     public PostQuantumPublicPreKey? PublicPostQuantumPreKey { get; }
 
     /// <summary>
+    /// The signature for the public post-quantum identity key (ML-KEM).
+    /// </summary>
+    public byte[]? PublicPostQuantumPreKeySignature { get; }
+
+    /// <summary>
     /// An optional public post-quantum one-time pre-key (ML-KEM).
     /// </summary>
     public PostQuantumPublicPreKey? PublicPostQuantumOneTimePreKey { get; }
@@ -66,6 +71,7 @@ public class PreKeyBundle
         byte[] signedPreKeySignature,
         (string KeyId, PublicKey Key)? oneTimePreKey,
         PostQuantumPublicPreKey? postQuantumPreKey = null,
+        byte[]? postQuantumPreKeySignature = null,
         PostQuantumPublicPreKey? postQuantumOneTimePreKey = null)
     {
         DeviceId = deviceId;
@@ -76,7 +82,23 @@ public class PreKeyBundle
         PublicOneTimePreKey = oneTimePreKey?.Key;
         PublicOneTimePreKeyId = oneTimePreKey?.KeyId;
         PublicPostQuantumPreKey = postQuantumPreKey;
+        PublicPostQuantumPreKeySignature = postQuantumPreKeySignature;
         PublicPostQuantumOneTimePreKey = postQuantumOneTimePreKey;
         PublicPostQuantumOneTimePreKeyId = postQuantumOneTimePreKey?.KeyId;
+    }
+
+    public static byte[] SerializePostQuantumPreKey(PostQuantumPublicPreKey preKey)
+    {
+        var keyIdBytes = System.Text.Encoding.UTF8.GetBytes(preKey.KeyId);
+        var parameterBytes = System.Text.Encoding.UTF8.GetBytes(preKey.ParameterName);
+        using var stream = new System.IO.MemoryStream();
+        using var writer = new System.IO.BinaryWriter(stream);
+        writer.Write(keyIdBytes.Length);
+        writer.Write(keyIdBytes);
+        writer.Write(parameterBytes.Length);
+        writer.Write(parameterBytes);
+        writer.Write(preKey.PublicKey.Length);
+        writer.Write(preKey.PublicKey);
+        return stream.ToArray();
     }
 }

@@ -13,7 +13,7 @@ public class PreKeyServer
     private readonly Dictionary<string, (PublicKey SigningKey, PublicKey AgreementKey)> _identityKeys = new();
     private readonly Dictionary<string, (PublicKey Key, byte[] Signature)> _signedPreKeys = new();
     private readonly Dictionary<string, ConcurrentQueue<(string KeyId, PublicKey Key)>> _oneTimePreKeys = new();
-    private readonly Dictionary<string, PostQuantumPublicPreKey> _postQuantumPreKeys = new();
+    private readonly Dictionary<string, (PostQuantumPublicPreKey Key, byte[] Signature)> _postQuantumPreKeys = new();
     private readonly Dictionary<string, ConcurrentQueue<PostQuantumPublicPreKey>> _postQuantumOneTimePreKeys = new();
 
     /// <summary>
@@ -58,7 +58,10 @@ public class PreKeyServer
     /// </summary>
     public void UploadPostQuantumKeys(Device device)
     {
-        _postQuantumPreKeys[device.Id] = device.PostQuantumKeyManager.PublicIdentityKey;
+        var publicPqKey = device.PostQuantumKeyManager.PublicIdentityKey;
+        var pqKeyBytes = PreKeyBundle.SerializePostQuantumPreKey(publicPqKey);
+        var pqSignature = SignatureAlgorithm.Ed25519.Sign(device.KeyManager.IdentitySigningKey, pqKeyBytes);
+        _postQuantumPreKeys[device.Id] = (publicPqKey, pqSignature);
         var devicePostQuantumKeysQueue = new ConcurrentQueue<PostQuantumPublicPreKey>();
         var devicePostQuantumKeysDict = device.PostQuantumKeyManager.GetPublicOneTimePreKeys();
         foreach (var pair in devicePostQuantumKeysDict)
@@ -99,9 +102,11 @@ public class PreKeyServer
         }
 
         PostQuantumPublicPreKey? postQuantumPreKey = null;
+        byte[]? postQuantumPreKeySignature = null;
         if (_postQuantumPreKeys.TryGetValue(deviceId, out var pqIdentity))
         {
-            postQuantumPreKey = pqIdentity;
+            postQuantumPreKey = pqIdentity.Key;
+            postQuantumPreKeySignature = pqIdentity.Signature;
         }
 
         return new PreKeyBundle(
@@ -112,6 +117,7 @@ public class PreKeyServer
             signedPreKeySignature,
             oneTimePreKey,
             postQuantumPreKey,
+            postQuantumPreKeySignature,
             postQuantumOneTimePreKey);
     }
 
@@ -131,6 +137,6 @@ public class PreKeyServer
             oneTimePreKey = pqOtp;
         }
 
-        return new PostQuantumPreKeyBundle(deviceId, identityKey, oneTimePreKey);
+        return new PostQuantumPreKeyBundle(deviceId, identityKey.Key, oneTimePreKey);
     }
 }

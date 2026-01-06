@@ -29,6 +29,32 @@ public static class PQXdhSession
             throw new InvalidOperationException($"No PQ prekey available for {recipientBundle.DeviceId}.");
         }
 
+        if (!pqRecipientKeyIsOneTime)
+        {
+            if (recipientBundle.PublicPostQuantumPreKeySignature == null)
+            {
+                throw new InvalidOperationException($"Missing PQ prekey signature for {recipientBundle.DeviceId}.");
+            }
+
+            var pqKeyBytes = PreKeyBundle.SerializePostQuantumPreKey(pqRecipientKey.Value);
+            if (DebugMode.Enabled)
+            {
+                TraceLogger.Log(TraceCategory.X3DH, $"Verifying signature of PQ PreKey from {recipientBundle.DeviceId}...");
+            }
+            var isSignatureValid = SignatureAlgorithm.Ed25519.Verify(
+                recipientBundle.PublicIdentitySigningKey,
+                pqKeyBytes,
+                recipientBundle.PublicPostQuantumPreKeySignature);
+            if (DebugMode.Enabled)
+            {
+                TraceLogger.Log(TraceCategory.X3DH, $"PQ PreKey signature from {recipientBundle.DeviceId}: {(isSignatureValid ? "SUCCESS" : "FAILED")}");
+            }
+            if (!isSignatureValid)
+            {
+                throw new InvalidOperationException($"Invalid PQ prekey signature for {recipientBundle.DeviceId}.");
+            }
+        }
+
         if (DebugMode.Enabled)
         {
             TraceLogger.Log(TraceCategory.X3DH, $"Using PQ prekey {pqRecipientKeyId.Substring(0, 10)}... ({(pqRecipientKeyIsOneTime ? "One-Time" : "Identity")}).");
