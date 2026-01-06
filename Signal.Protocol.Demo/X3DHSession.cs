@@ -29,8 +29,8 @@ public static class X3DHSession
     /// <summary>
     /// Initiates a session from the initiator device's side.
     /// </summary>
-    /// <returns>The shared secret, the initial message, and the responder's initial ratchet key.</returns>
-    public static (byte[] SharedSecret, InitialMessage InitialMsg, PublicKey InitialRatchetKey) InitiateSession(Device initiatorDevice, PreKeyBundle recipientBundle)
+    /// <returns>The shared secret, the initial message, the responder's initial ratchet key, and the initiator's ephemeral private key.</returns>
+    public static (byte[] SharedSecret, InitialMessage InitialMsg, PublicKey InitialRatchetKey, Key InitiatorEphemeralKey) InitiateSession(Device initiatorDevice, PreKeyBundle recipientBundle)
     {
         if(DebugMode.Enabled) TraceLogger.Log(TraceCategory.X3DH, $"--- X3DH INITIATION: {initiatorDevice.Id} -> {recipientBundle.DeviceId} ---");
         var creationParams = new SharedSecretCreationParameters { ExportPolicy = KeyExportPolicies.AllowPlaintextExport };
@@ -40,7 +40,7 @@ public static class X3DHSession
         if(DebugMode.Enabled) TraceLogger.Log(TraceCategory.X3DH, $"Verifying signature of SignedPreKey from {recipientBundle.DeviceId}: {(isSignatureValid ? "SUCCESS" : "FAILED")}");
         if (!isSignatureValid) throw new System.Security.SecurityException("Invalid signature on PreKeyBundle.");
 
-        using var ephemeralKey = Key.Create(KeyAgreementAlgorithm.X25519, new KeyCreationParameters { ExportPolicy = KeyExportPolicies.AllowPlaintextExport });
+        var ephemeralKey = Key.Create(KeyAgreementAlgorithm.X25519, new KeyCreationParameters { ExportPolicy = KeyExportPolicies.AllowPlaintextExport });
         if(DebugMode.Enabled) TraceLogger.LogKey(TraceCategory.X3DH, "Initiator EphemeralKey (Private)", ephemeralKey.Export(KeyBlobFormat.RawPrivateKey));
 
         // Perform the 4 DH calculations
@@ -72,7 +72,7 @@ public static class X3DHSession
 
         var initialMessage = new InitialMessage(initiatorDevice.KeyManager.IdentityAgreementKey.PublicKey, ephemeralKey.PublicKey, recipientBundle.PublicOneTimePreKeyId);
         
-        return (sharedSecret, initialMessage, recipientBundle.PublicSignedPreKey);
+        return (sharedSecret, initialMessage, recipientBundle.PublicSignedPreKey, ephemeralKey);
     }
     
     /// <summary>
@@ -126,7 +126,8 @@ public static class X3DHSession
     public static byte[] DeriveSharedSecret(byte[] ikm)
     {
         var salt = new byte[32]; // A salt of zero-bytes
-        return KeyDerivationAlgorithm.HkdfSha256.DeriveBytes(ikm, salt, null, 32);
+        var info = System.Text.Encoding.UTF8.GetBytes("X3DH");
+        return KeyDerivationAlgorithm.HkdfSha256.DeriveBytes(ikm, salt, info, 32);
     }
 
     public static byte[] Concat(params byte[]?[] arrays)

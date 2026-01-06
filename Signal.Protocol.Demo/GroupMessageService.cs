@@ -5,6 +5,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.IO;
 
 namespace Signal.Protocol.Demo;
 
@@ -143,7 +144,8 @@ public class GroupMessageService
         var nonce = new byte[AeadAlgorithm.Aes256Gcm.NonceSize];
         RandomNumberGenerator.Fill(nonce);
         using var aesKey = Key.Import(_aead, messageKey, KeyBlobFormat.RawSymmetricKey);
-        var ciphertext = _aead.Encrypt(aesKey, nonce, null, Encoding.UTF8.GetBytes(plaintext));
+        var ad = BuildAssociatedData(group.Id, senderDeviceId, currentCounter);
+        var ciphertext = _aead.Encrypt(aesKey, nonce, ad, Encoding.UTF8.GetBytes(plaintext));
         var combinedCiphertext = nonce.Concat(ciphertext).ToArray();
         
         var signature = SignatureAlgorithm.Ed25519.Sign(senderState.SigningKey, combinedCiphertext);
@@ -183,7 +185,8 @@ public class GroupMessageService
             var nonce = groupMessage.Ciphertext.AsSpan(0, _aead.NonceSize).ToArray();
             var ciphertext = groupMessage.Ciphertext.AsSpan(_aead.NonceSize).ToArray();
             using var aesKey = Key.Import(_aead, messageKey, KeyBlobFormat.RawSymmetricKey);
-            var plaintextBytes = _aead.Decrypt(aesKey, nonce, null, ciphertext);
+            var ad = BuildAssociatedData(groupMessage.GroupId, groupMessage.SenderDeviceId, groupMessage.MessageCounter);
+            var plaintextBytes = _aead.Decrypt(aesKey, nonce, ad, ciphertext);
 
             if (plaintextBytes != null)
             {
@@ -199,5 +202,19 @@ public class GroupMessageService
         {
             TraceLogger.Log(TraceCategory.GROUP, $"    [!!! ERROR at {recipientDevice.Id}] No Sender Key found for {groupMessage.SenderDeviceId} in group {groupMessage.GroupId}!");
         }
+    }
+
+    private static byte[] BuildAssociatedData(string groupId, string senderDeviceId, uint messageCounter)
+    {
+        var groupIdBytes = Encoding.UTF8.GetBytes(groupId);
+        var senderIdBytes = Encoding.UTF8.GetBytes(senderDeviceId);
+        using var stream = new MemoryStream();
+        using var writer = new BinaryWriter(stream);
+        writer.Write(groupIdBytes.Length);
+        writer.Write(groupIdBytes);
+        writer.Write(senderIdBytes.Length);
+        writer.Write(senderIdBytes);
+        writer.Write(messageCounter);
+        return stream.ToArray();
     }
 }

@@ -42,7 +42,7 @@ public class MessageService
             return;
         }
         
-        var (initiatorSecret, initialBundle, responderInitialRatchetKey, remotePqPreKey) = PQXdhSession.InitiateSession(initiatorDevice, responderBundle);
+        var (initiatorSecret, initialBundle, responderInitialRatchetKey, remotePqPreKey, initiatorEphemeralKey) = PQXdhSession.InitiateSession(initiatorDevice, responderBundle);
         var (responderSecret, initiatorInitialRatchetKey, responderPqPreKey) = PQXdhSession.EstablishSession(responderDevice, initialBundle);
         
         if (!initiatorSecret.SequenceEqual(responderSecret))
@@ -53,7 +53,7 @@ public class MessageService
         var initiatorRatchet = new HybridDoubleRatchet(
             initiatorDevice.Id,
             initiatorSecret,
-            initiatorDevice.KeyManager.IdentityAgreementKey,
+            initiatorEphemeralKey,
             responderInitialRatchetKey,
             isInitiator: true,
             initialRemotePqKey: remotePqPreKey);

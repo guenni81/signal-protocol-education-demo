@@ -1,6 +1,5 @@
 using NSec.Cryptography;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace Signal.Protocol.Demo;
 
@@ -18,6 +17,8 @@ public class SenderKeyState
     public byte[] ChainKey { get; private set; }
     public uint MessageCounter { get; private set; }
     public Dictionary<uint, byte[]> SkippedMessageKeys { get; }
+    private readonly LinkedList<uint> _skippedMessageKeyOrder = new();
+    private readonly Dictionary<uint, LinkedListNode<uint>> _skippedMessageKeyNodes = new();
 
     private SenderKeyState(Key signingKey, byte[] chainKey, string loggingId)
     {
@@ -86,6 +87,11 @@ public class SenderKeyState
                 TraceLogger.Log(TraceCategory.ORDERING, $"[{_loggingId}] Decrypting delayed message C={messageCounter} with stored key.");
                 TraceLogger.LogKey(TraceCategory.ORDERING, "  Used SkippedKey", skippedKey);
                 SkippedMessageKeys.Remove(messageCounter);
+                if (_skippedMessageKeyNodes.TryGetValue(messageCounter, out var node))
+                {
+                    _skippedMessageKeyOrder.Remove(node);
+                    _skippedMessageKeyNodes.Remove(messageCounter);
+                }
                 return skippedKey;
             }
             TraceLogger.Log(TraceCategory.ORDERING, $"[!!!] WARNING: Message C={messageCounter} is too old and no matching key is in the cache. REPLAY? Discarding...");
@@ -99,14 +105,8 @@ public class SenderKeyState
         
         while (MessageCounter < messageCounter)
         {
-            if (SkippedMessageKeys.Count >= MAX_SKIPPED_KEYS)
-            {
-                TraceLogger.Log(TraceCategory.ORDERING, $"[!!!] Maximum number of skipped keys ({MAX_SKIPPED_KEYS}) reached. Discarding oldest.");
-                SkippedMessageKeys.Remove(SkippedMessageKeys.Keys.First());
-            }
-            
             var (skippedMessageKey, nextChainKey) = GetNextKeys();
-            SkippedMessageKeys[MessageCounter] = skippedMessageKey;
+            StoreSkippedMessageKey(MessageCounter, skippedMessageKey);
             TraceLogger.LogKey(TraceCategory.ORDERING, $"  -> Storing SkippedKey for C={MessageCounter}", skippedMessageKey);
             ChainKey = nextChainKey;
             MessageCounter++;
@@ -130,5 +130,21 @@ public class SenderKeyState
         // An input of 0x01 produces the message key.
         // An input of 0x02 produces the next chain key.
         return KDFUtil.KDF_CK(ChainKey, "\x01", "\x02");
+    }
+
+    private void StoreSkippedMessageKey(uint counter, byte[] skippedKey)
+    {
+        SkippedMessageKeys[counter] = skippedKey;
+        var node = _skippedMessageKeyOrder.AddLast(counter);
+        _skippedMessageKeyNodes[counter] = node;
+
+        while (_skippedMessageKeyOrder.Count > MAX_SKIPPED_KEYS)
+        {
+            var oldestNode = _skippedMessageKeyOrder.First!;
+            _skippedMessageKeyOrder.RemoveFirst();
+            _skippedMessageKeyNodes.Remove(oldestNode.Value);
+            SkippedMessageKeys.Remove(oldestNode.Value);
+            TraceLogger.Log(TraceCategory.ORDERING, $"[!!!] Maximum number of skipped keys ({MAX_SKIPPED_KEYS}) reached. Discarding oldest.");
+        }
     }
 }
