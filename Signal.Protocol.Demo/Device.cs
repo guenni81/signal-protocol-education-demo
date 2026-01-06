@@ -33,7 +33,7 @@ public class Device
     /// Manages the 1:1 Double Ratchet sessions of this device with other devices.
     /// The key is the ID of the other device.
     /// </summary>
-    public ConcurrentDictionary<string, DoubleRatchet> PairwiseSessions { get; }
+    public ConcurrentDictionary<string, HybridDoubleRatchet> PairwiseSessions { get; }
     
     /// <summary>
     /// Manages the received Sender Key states for each group and sender.
@@ -58,7 +58,7 @@ public class Device
         Id = $"{owner.Name}-{deviceName}";
         KeyManager = new KeyManager();
         PostQuantumKeyManager = new PostQuantumKeyManager();
-        PairwiseSessions = new ConcurrentDictionary<string, DoubleRatchet>();
+        PairwiseSessions = new ConcurrentDictionary<string, HybridDoubleRatchet>();
         ReceivedSenderKeyStates = new ConcurrentDictionary<string, SenderKeyState>();
         OwnSenderKeyStates = new ConcurrentDictionary<string, SenderKeyState>();
     }

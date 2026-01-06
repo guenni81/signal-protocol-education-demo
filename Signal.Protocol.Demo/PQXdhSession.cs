@@ -11,7 +11,7 @@ public static class PQXdhSession
     /// <summary>
     /// Initiates a PQXDH session from the initiator device's side.
     /// </summary>
-    public static (byte[] RootKey, PQXdhMessageBundle InitialBundle, PublicKey InitialRatchetKey) InitiateSession(Device initiatorDevice, PreKeyBundle recipientBundle)
+    public static (byte[] RootKey, PQXdhMessageBundle InitialBundle, PublicKey InitialRatchetKey, PostQuantumPublicPreKey RemotePqPreKey) InitiateSession(Device initiatorDevice, PreKeyBundle recipientBundle)
     {
         if (DebugMode.Enabled)
         {
@@ -52,13 +52,13 @@ public static class PQXdhSession
         }
 
         var bundle = new PQXdhMessageBundle(classicalMessage, ciphertext, pqRecipientKeyId, pqRecipientKeyIsOneTime);
-        return (rootKey, bundle, responderInitialRatchetKey);
+        return (rootKey, bundle, responderInitialRatchetKey, pqRecipientKey.Value);
     }
 
     /// <summary>
     /// Establishes a PQXDH session from the responder device's side.
     /// </summary>
-    public static (byte[] RootKey, PublicKey InitialRatchetKey) EstablishSession(Device recipientDevice, PQXdhMessageBundle bundle)
+    public static (byte[] RootKey, PublicKey InitialRatchetKey, PostQuantumPreKey RecipientPqKey) EstablishSession(Device recipientDevice, PQXdhMessageBundle bundle)
     {
         if (DebugMode.Enabled)
         {
@@ -97,6 +97,6 @@ public static class PQXdhSession
             TraceLogger.Log(TraceCategory.X3DH, "--- PQXDH ESTABLISHMENT COMPLETE ---\n");
         }
 
-        return (rootKey, initiatorInitialRatchetKey);
+        return (rootKey, initiatorInitialRatchetKey, pqRecipientKey);
     }
 }

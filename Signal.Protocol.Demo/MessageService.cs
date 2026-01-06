@@ -42,16 +42,30 @@ public class MessageService
             return;
         }
         
-        var (initiatorSecret, initialBundle, responderInitialRatchetKey) = PQXdhSession.InitiateSession(initiatorDevice, responderBundle);
-        var (responderSecret, initiatorInitialRatchetKey) = PQXdhSession.EstablishSession(responderDevice, initialBundle);
+        var (initiatorSecret, initialBundle, responderInitialRatchetKey, remotePqPreKey) = PQXdhSession.InitiateSession(initiatorDevice, responderBundle);
+        var (responderSecret, initiatorInitialRatchetKey, responderPqPreKey) = PQXdhSession.EstablishSession(responderDevice, initialBundle);
         
         if (!initiatorSecret.SequenceEqual(responderSecret))
         {
             throw new InvalidOperationException($"X3DH secrets do not match!");
         }
 
-        var initiatorRatchet = new DoubleRatchet(initiatorDevice.Id, initiatorSecret, initiatorDevice.KeyManager.IdentityAgreementKey, responderInitialRatchetKey, isInitiator: true);
-        var responderRatchet = new DoubleRatchet(responderDevice.Id, responderSecret, responderDevice.KeyManager.SignedPreKey, initiatorInitialRatchetKey, isInitiator: false);
+        var initiatorRatchet = new HybridDoubleRatchet(
+            initiatorDevice.Id,
+            initiatorSecret,
+            initiatorDevice.KeyManager.IdentityAgreementKey,
+            responderInitialRatchetKey,
+            isInitiator: true,
+            initialRemotePqKey: remotePqPreKey);
+
+        var responderRatchet = new HybridDoubleRatchet(
+            responderDevice.Id,
+            responderSecret,
+            responderDevice.KeyManager.SignedPreKey,
+            initiatorInitialRatchetKey,
+            isInitiator: false,
+            initialRemotePqKey: null,
+            initialLocalPqKey: responderPqPreKey);
 
         initiatorDevice.PairwiseSessions[responderDevice.Id] = initiatorRatchet;
         responderDevice.PairwiseSessions[initiatorDevice.Id] = responderRatchet;

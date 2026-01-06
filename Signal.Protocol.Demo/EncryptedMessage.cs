@@ -28,11 +28,29 @@ public class EncryptedMessage
     /// </summary>
     public byte[] Ciphertext { get; }
 
-    public EncryptedMessage(PublicKey senderRatchetKey, uint messageNumber, uint previousMessageNumber, byte[] ciphertext)
+    /// <summary>
+    /// Optional ML-KEM ciphertext for the PQ ratchet step.
+    /// </summary>
+    public byte[]? PostQuantumCiphertext { get; }
+
+    /// <summary>
+    /// Optional sender PQ ratchet public key for the recipient's next step.
+    /// </summary>
+    public PostQuantumPublicPreKey? SenderPostQuantumRatchetKey { get; }
+
+    public EncryptedMessage(
+        PublicKey senderRatchetKey,
+        uint messageNumber,
+        uint previousMessageNumber,
+        byte[] ciphertext,
+        byte[]? postQuantumCiphertext = null,
+        PostQuantumPublicPreKey? senderPostQuantumRatchetKey = null)
     {
         SenderRatchetKey = senderRatchetKey;
         MessageNumber = messageNumber;
         PreviousMessageNumber = previousMessageNumber;
         Ciphertext = ciphertext;
+        PostQuantumCiphertext = postQuantumCiphertext;
+        SenderPostQuantumRatchetKey = senderPostQuantumRatchetKey;
     }
 }
