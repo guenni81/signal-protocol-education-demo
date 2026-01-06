@@ -29,7 +29,7 @@ public class MessageService
     }
 
     /// <summary>
-    /// Initializes a secure 1:1 session between two DEVICES using X3DH.
+    /// Initializes a secure 1:1 session between two DEVICES using PQXDH.
     /// </summary>
     public void InitializeSession(Device initiatorDevice, Device responderDevice)
     {
@@ -42,8 +42,8 @@ public class MessageService
             return;
         }
         
-        var (initiatorSecret, initialMsg, responderInitialRatchetKey) = X3DHSession.InitiateSession(initiatorDevice, responderBundle);
-        var (responderSecret, initiatorInitialRatchetKey) = X3DHSession.EstablishSession(responderDevice, initialMsg);
+        var (initiatorSecret, initialBundle, responderInitialRatchetKey) = PQXdhSession.InitiateSession(initiatorDevice, responderBundle);
+        var (responderSecret, initiatorInitialRatchetKey) = PQXdhSession.EstablishSession(responderDevice, initialBundle);
         
         if (!initiatorSecret.SequenceEqual(responderSecret))
         {

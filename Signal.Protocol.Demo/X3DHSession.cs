@@ -66,8 +66,7 @@ public static class X3DHSession
         var ikm = Concat(dh1!.Export(SharedSecretBlobFormat.RawSharedSecret), dh2!.Export(SharedSecretBlobFormat.RawSharedSecret), dh3!.Export(SharedSecretBlobFormat.RawSharedSecret), dh4Bytes);
         if(DebugMode.Enabled) TraceLogger.LogKey(TraceCategory.X3DH, "IKM (Intermediate Key Material)", ikm);
         
-        var salt = new byte[32]; // A salt of zero-bytes
-        var sharedSecret = KeyDerivationAlgorithm.HkdfSha256.DeriveBytes(ikm, salt, null, 32);
+        var sharedSecret = DeriveSharedSecret(ikm);
         if(DebugMode.Enabled) TraceLogger.LogKey(TraceCategory.X3DH, "SK (Shared Secret)", sharedSecret);
         if(DebugMode.Enabled) TraceLogger.Log(TraceCategory.X3DH, "--- X3DH INITIATION COMPLETE ---\n");
 
@@ -117,15 +116,20 @@ public static class X3DHSession
         var ikm = Concat(dh1!.Export(SharedSecretBlobFormat.RawSharedSecret), dh2!.Export(SharedSecretBlobFormat.RawSharedSecret), dh3!.Export(SharedSecretBlobFormat.RawSharedSecret), dh4Bytes);
         if(DebugMode.Enabled) TraceLogger.LogKey(TraceCategory.X3DH, "IKM (Intermediate Key Material)", ikm);
         
-        var salt = new byte[32];
-        var sharedSecret = KeyDerivationAlgorithm.HkdfSha256.DeriveBytes(ikm, salt, null, 32);
+        var sharedSecret = DeriveSharedSecret(ikm);
         if(DebugMode.Enabled) TraceLogger.LogKey(TraceCategory.X3DH, "SK (Shared Secret)", sharedSecret);
         if(DebugMode.Enabled) TraceLogger.Log(TraceCategory.X3DH, "--- X3DH ESTABLISHMENT COMPLETE ---\n");
 
         return (sharedSecret, message.InitiatorEphemeralKey);
     }
 
-    private static byte[] Concat(params byte[]?[] arrays)
+    public static byte[] DeriveSharedSecret(byte[] ikm)
+    {
+        var salt = new byte[32]; // A salt of zero-bytes
+        return KeyDerivationAlgorithm.HkdfSha256.DeriveBytes(ikm, salt, null, 32);
+    }
+
+    public static byte[] Concat(params byte[]?[] arrays)
     {
         var result = new List<byte>();
         foreach (var arr in arrays)

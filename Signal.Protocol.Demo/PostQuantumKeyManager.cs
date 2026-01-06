@@ -120,7 +120,13 @@ public sealed class PostQuantumKeyManager
 
     public static MLKemParameters ResolveParameters(string parameterName)
     {
-        return parameterName switch
+        if (string.IsNullOrWhiteSpace(parameterName))
+        {
+            throw new ArgumentException("ML-KEM parameter name must be provided.", nameof(parameterName));
+        }
+
+        var normalized = parameterName.Trim().ToLowerInvariant().Replace("-", "_");
+        return normalized switch
         {
             "ml_kem_512" => MLKemParameters.ml_kem_512,
             "ml_kem_768" => MLKemParameters.ml_kem_768,
