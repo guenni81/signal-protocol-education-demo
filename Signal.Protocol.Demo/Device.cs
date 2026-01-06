@@ -25,6 +25,11 @@ public class Device
     public KeyManager KeyManager { get; }
 
     /// <summary>
+    /// The key manager for the ML-KEM Post-Quantum prekeys of this device.
+    /// </summary>
+    public PostQuantumKeyManager PostQuantumKeyManager { get; }
+
+    /// <summary>
     /// Manages the 1:1 Double Ratchet sessions of this device with other devices.
     /// The key is the ID of the other device.
     /// </summary>
@@ -52,6 +57,7 @@ public class Device
         Owner = owner;
         Id = $"{owner.Name}-{deviceName}";
         KeyManager = new KeyManager();
+        PostQuantumKeyManager = new PostQuantumKeyManager();
         PairwiseSessions = new ConcurrentDictionary<string, DoubleRatchet>();
         ReceivedSenderKeyStates = new ConcurrentDictionary<string, SenderKeyState>();
         OwnSenderKeyStates = new ConcurrentDictionary<string, SenderKeyState>();

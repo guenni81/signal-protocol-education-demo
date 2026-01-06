@@ -43,13 +43,30 @@ public class PreKeyBundle
     /// </summary>
     public string? PublicOneTimePreKeyId { get; }
 
+    /// <summary>
+    /// The public post-quantum identity key (ML-KEM).
+    /// </summary>
+    public PostQuantumPublicPreKey? PublicPostQuantumPreKey { get; }
+
+    /// <summary>
+    /// An optional public post-quantum one-time pre-key (ML-KEM).
+    /// </summary>
+    public PostQuantumPublicPreKey? PublicPostQuantumOneTimePreKey { get; }
+
+    /// <summary>
+    /// The ID of the optional post-quantum one-time pre-key.
+    /// </summary>
+    public string? PublicPostQuantumOneTimePreKeyId { get; }
+
     public PreKeyBundle(
         string deviceId,
         PublicKey publicIdentitySigningKey,
         PublicKey publicIdentityAgreementKey,
         PublicKey publicSignedPreKey,
         byte[] signedPreKeySignature,
-        (string KeyId, PublicKey Key)? oneTimePreKey)
+        (string KeyId, PublicKey Key)? oneTimePreKey,
+        PostQuantumPublicPreKey? postQuantumPreKey = null,
+        PostQuantumPublicPreKey? postQuantumOneTimePreKey = null)
     {
         DeviceId = deviceId;
         PublicIdentitySigningKey = publicIdentitySigningKey;
@@ -58,5 +75,8 @@ public class PreKeyBundle
         SignedPreKeySignature = signedPreKeySignature;
         PublicOneTimePreKey = oneTimePreKey?.Key;
         PublicOneTimePreKeyId = oneTimePreKey?.KeyId;
+        PublicPostQuantumPreKey = postQuantumPreKey;
+        PublicPostQuantumOneTimePreKey = postQuantumOneTimePreKey;
+        PublicPostQuantumOneTimePreKeyId = postQuantumOneTimePreKey?.KeyId;
     }
 }
