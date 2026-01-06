@@ -98,6 +98,106 @@ public class DoubleRatchetTests
         Assert.Contains($"  -> [{bob.Id}] processing 1:1 message from {alice.Id}: '{msg2}'", output);
         Assert.Contains($"  -> [{bob.Id}] processing 1:1 message from {alice.Id}: '{msg3}'", output);
     }
+
+    [Fact]
+    public void OutOfOrder_After_Ratchet_Should_Defer_Until_PqCiphertext_Arrives()
+    {
+        // ARRANGE
+        InitializeSession();
+        DebugMode.Enabled = true;
+        var alice = _infra.AliceMobile;
+        var bob = _infra.BobMobile;
+
+        // Seed the conversation so Bob has a receiving chain.
+        _infra.PairwiseMessageService.SendMessage(alice, bob, "Seed-1");
+        _infra.DeliverAllMessages();
+        _infra.GetAndClearConsoleOutput();
+
+        // Bob replies so Alice performs a ratchet step and prepares PQ ciphertext.
+        _infra.PairwiseMessageService.SendMessage(bob, alice, "Seed-2");
+        _infra.DeliverAllMessages();
+        _infra.GetAndClearConsoleOutput();
+
+        // Alice sends two messages on the new sending chain.
+        string msg1 = "PostRatchet-1";
+        string msg2 = "PostRatchet-2";
+        _infra.PairwiseMessageService.SendMessage(alice, bob, msg1);
+        _infra.PairwiseMessageService.SendMessage(alice, bob, msg2);
+
+        // ACT: deliver second (no PQ ciphertext) before first (with PQ ciphertext).
+        _infra.TransportService.DeliverMessagesToDevice(bob.Id, new() { 1, 0 });
+
+        // ASSERT
+        var output = _infra.GetAndClearConsoleOutput();
+        Assert.Contains($"  -> [{bob.Id}] processing 1:1 message from {alice.Id}: '{msg1}'", output);
+        Assert.Contains($"  -> [{bob.Id}] processing 1:1 message from {alice.Id}: '{msg2}'", output);
+    }
+
+    [Fact]
+    public void OldChain_Message_Should_Decrypt_After_New_Ratchet_Message()
+    {
+        // ARRANGE
+        InitializeSession();
+        DebugMode.Enabled = true;
+        var alice = _infra.AliceMobile;
+        var bob = _infra.BobMobile;
+        string msg1 = "Chain-A-1";
+        string msg2 = "Chain-A-2";
+        string msg3 = "Chain-B-1";
+
+        // Alice sends two messages; deliver only the first.
+        _infra.PairwiseMessageService.SendMessage(alice, bob, msg1);
+        _infra.PairwiseMessageService.SendMessage(alice, bob, msg2);
+        _infra.TransportService.DeliverMessagesToDevice(bob.Id, new() { 0 });
+        _infra.GetAndClearConsoleOutput();
+
+        // Bob replies so Alice performs a ratchet step.
+        _infra.PairwiseMessageService.SendMessage(bob, alice, "Bob-Reply");
+        _infra.TransportService.DeliverMessagesToDevice(alice.Id, new() { 0 });
+        _infra.GetAndClearConsoleOutput();
+
+        // Alice sends a message on the new chain.
+        _infra.PairwiseMessageService.SendMessage(alice, bob, msg3);
+
+        // ACT: deliver new-chain message before old-chain message.
+        _infra.TransportService.DeliverMessagesToDevice(bob.Id, new() { 1, 0 });
+
+        // ASSERT
+        var output = _infra.GetAndClearConsoleOutput();
+        Assert.Contains($"  -> [{bob.Id}] processing 1:1 message from {alice.Id}: '{msg3}'", output);
+        Assert.Contains($"  -> [{bob.Id}] processing 1:1 message from {alice.Id}: '{msg2}'", output);
+    }
+
+    [Fact]
+    public void Header_Tampering_Should_Fail_Decryption()
+    {
+        // ARRANGE
+        InitializeSession();
+        DebugMode.Enabled = false;
+        var alice = _infra.AliceMobile;
+        var bob = _infra.BobMobile;
+
+        var senderRatchet = alice.PairwiseSessions[bob.Id];
+        var receiverRatchet = bob.PairwiseSessions[alice.Id];
+
+        var seed = senderRatchet.RatchetEncrypt(System.Text.Encoding.UTF8.GetBytes("Seed"));
+        var seedPlaintext = receiverRatchet.RatchetDecrypt(seed);
+        Assert.NotNull(seedPlaintext);
+
+        var message = senderRatchet.RatchetEncrypt(System.Text.Encoding.UTF8.GetBytes("Payload"));
+        var tampered = new EncryptedMessage(
+            message.SenderRatchetKey,
+            message.MessageNumber + 1,
+            message.PreviousMessageNumber,
+            message.Ciphertext,
+            message.PostQuantumCiphertext,
+            message.SenderPostQuantumRatchetKey);
+
+        // ACT
+        var plaintext = receiverRatchet.RatchetDecrypt(tampered);
+
+        // ASSERT
+        Assert.Null(plaintext);
+    }
     
 }
-
