@@ -69,6 +69,31 @@ public class KeyManagementTests
     }
 
     [Fact]
+    public void PreKeyServer_Should_Publish_Verifiable_PqPreKey_Signature()
+    {
+        // ARRANGE
+        var device = _infra.AliceMobile;
+        var server = _infra.PreKeyServer;
+
+        // ACT
+        var bundle = server.GetPreKeyBundle(device.Id);
+
+        // ASSERT
+        Assert.NotNull(bundle);
+        Assert.NotNull(bundle!.PublicPostQuantumPreKey);
+        Assert.NotNull(bundle.PublicPostQuantumPreKeySignature);
+        Assert.NotEmpty(bundle.PublicPostQuantumPreKeySignature);
+
+        var pqKeyBytes = PreKeyBundle.SerializePostQuantumPreKey(bundle.PublicPostQuantumPreKey.Value);
+        var isValid = NSec.Cryptography.SignatureAlgorithm.Ed25519.Verify(
+            bundle.PublicIdentitySigningKey,
+            pqKeyBytes,
+            bundle.PublicPostQuantumPreKeySignature);
+
+        Assert.True(isValid);
+    }
+
+    [Fact]
     public void TakeOneTimePreKey_Should_Remove_Key_From_Bundle()
     {
         // ARRANGE

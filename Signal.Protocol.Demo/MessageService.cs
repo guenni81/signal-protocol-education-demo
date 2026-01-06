@@ -13,6 +13,7 @@ public class MessageService
     private readonly PreKeyServer _preKeyServer;
     private GroupMessageService? _groupService;
     private TransportService? _transportService;
+    private readonly Dictionary<string, List<EncryptedMessage>> _pendingPairwiseMessages = new();
 
     public MessageService(PreKeyServer preKeyServer)
     {
@@ -111,10 +112,59 @@ public class MessageService
         {
             var decryptedMessage = Encoding.UTF8.GetString(decryptedPlaintextBytes);
             _groupService.ProcessPairwiseMessage(recipientDevice, senderDeviceId, decryptedMessage);
+            TryProcessPendingMessages(recipientDevice, senderDeviceId, receiverRatchet);
         }
         else
         {
-            TraceLogger.Log(TraceCategory.INFO, $"  -> [!!! ERROR at {recipientDevice.Id}] Decryption of 1:1 message from {senderDeviceId} failed.");
+            EnqueuePendingMessage(recipientDevice, senderDeviceId, encryptedMessage);
+            TraceLogger.Log(TraceCategory.INFO, $"  -> [{recipientDevice.Id}] Deferred 1:1 message from {senderDeviceId} for later processing.");
+        }
+    }
+
+    private void EnqueuePendingMessage(Device recipientDevice, string senderDeviceId, EncryptedMessage encryptedMessage)
+    {
+        var key = $"{recipientDevice.Id}:{senderDeviceId}";
+        if (!_pendingPairwiseMessages.TryGetValue(key, out var pending))
+        {
+            pending = new List<EncryptedMessage>();
+            _pendingPairwiseMessages[key] = pending;
+        }
+        pending.Add(encryptedMessage);
+    }
+
+    private void TryProcessPendingMessages(Device recipientDevice, string senderDeviceId, HybridDoubleRatchet receiverRatchet)
+    {
+        if (_groupService == null) return;
+
+        var key = $"{recipientDevice.Id}:{senderDeviceId}";
+        if (!_pendingPairwiseMessages.TryGetValue(key, out var pending) || pending.Count == 0)
+        {
+            return;
+        }
+
+        var progress = true;
+        while (progress && pending.Count > 0)
+        {
+            progress = false;
+            for (int i = pending.Count - 1; i >= 0; i--)
+            {
+                var message = pending[i];
+                var decrypted = receiverRatchet.RatchetDecrypt(message);
+                if (decrypted == null)
+                {
+                    continue;
+                }
+
+                pending.RemoveAt(i);
+                var plaintext = Encoding.UTF8.GetString(decrypted);
+                _groupService.ProcessPairwiseMessage(recipientDevice, senderDeviceId, plaintext);
+                progress = true;
+            }
+        }
+
+        if (pending.Count == 0)
+        {
+            _pendingPairwiseMessages.Remove(key);
         }
     }
 }

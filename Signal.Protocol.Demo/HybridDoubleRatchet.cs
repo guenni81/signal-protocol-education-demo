@@ -137,6 +137,11 @@ public sealed class HybridDoubleRatchet
 
         if (_remoteReceivingRatchetKey == null || _receivingChainKey == null || !message.SenderRatchetKey.Equals(_remoteReceivingRatchetKey))
         {
+            if (message.PostQuantumCiphertext == null)
+            {
+                TraceLogger.Log(TraceCategory.RATCHET, $"[{_deviceId}] Missing PQ ciphertext for ratchet step; deferring message N={message.MessageNumber}.");
+                return null;
+            }
             TraceLogger.Log(TraceCategory.RATCHET, $"[{_deviceId}] New remote ratchet key received. Performing hybrid ratchet step.");
             PerformDHReceivingRatchet(message);
         }
